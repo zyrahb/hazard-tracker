@@ -2,6 +2,7 @@
 
 Template using this tutorial 
 https://amplify-workshop.go-aws.com/
+https://read.acloud.guru/build-your-own-multi-user-photo-album-app-with-react-graphql-and-aws-amplify-374800b22e96
 
 Initialising commands
 ```
@@ -24,4 +25,3 @@ npm install --save uuid
 
 Notes
 - have to manually add the s3 trigger to lambda for an existing bucket in SAM also aws cli lambda only supports kinesis/dynamoDB/SQS
-

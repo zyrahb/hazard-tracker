@@ -1,18 +1,19 @@
-import React, { Component } from 'react';
+import React, {Component} from 'react';
 
 import {BrowserRouter as Router, Route, NavLink} from 'react-router-dom';
-import { Divider, Form, Grid, Header, Input, List, Segment } from 'semantic-ui-react';
+import {Divider, Form, Grid, Header, Input, Segment, Table} from 'semantic-ui-react';
 import {v4 as uuid} from 'uuid';
 
-import { Connect, S3Image, withAuthenticator } from 'aws-amplify-react';
-import Amplify, { API, Auth, graphqlOperation, Storage } from 'aws-amplify';
+import {Connect, S3Image, withAuthenticator} from 'aws-amplify-react';
+import Amplify, {API, Auth, graphqlOperation, Storage} from 'aws-amplify';
 
 import aws_exports from './aws-exports';
+
 Amplify.configure(aws_exports);
 
-function makeComparator(key, order='asc') {
+function makeComparator(key, order = 'asc') {
     return (a, b) => {
-        if(!a.hasOwnProperty(key) || !b.hasOwnProperty(key)) return 0;
+        if (!a.hasOwnProperty(key) || !b.hasOwnProperty(key)) return 0;
 
         const aVal = (typeof a[key] === 'string') ? a[key].toUpperCase() : a[key];
         const bVal = (typeof b[key] === 'string') ? b[key].toUpperCase() : b[key];
@@ -31,6 +32,9 @@ const ListAlbums = `query ListAlbums {
         items {
             id
             name
+            owner
+            updatedAt
+            state
         }
     }
 }`;
@@ -95,7 +99,7 @@ class Search extends React.Component {
     }
 
     updateLabel = (e) => {
-        this.setState({ label: e.target.value, searched: false });
+        this.setState({label: e.target.value, searched: false});
     }
 
     getPhotosForLabel = async (e) => {
@@ -108,8 +112,8 @@ class Search extends React.Component {
             photos = result.data.searchPhotos.items;
             label = this.state.label;
         }
-        const searchResults = { label, photos }
-        this.setState({ searchResults, hasResults, searched: true });
+        const searchResults = {label, photos}
+        this.setState({searchResults, hasResults, searched: true});
     }
 
     noResults() {
@@ -126,14 +130,14 @@ class Search extends React.Component {
                     placeholder='Search for photos'
                     icon='search'
                     iconPosition='left'
-                    action={{ content: 'Search', onClick: this.getPhotosForLabel }}
+                    action={{content: 'Search', onClick: this.getPhotosForLabel}}
                     name='label'
                     value={this.state.label}
                     onChange={this.updateLabel}
                 />
                 {
                     this.state.hasResults
-                        ? <PhotosList photos={this.state.searchResults.photos} />
+                        ? <PhotosList photos={this.state.searchResults.photos}/>
                         : this.noResults()
                 }
             </Segment>
@@ -145,7 +149,7 @@ class Search extends React.Component {
 class S3ImageUpload extends React.Component {
     constructor(props) {
         super(props);
-        this.state = { uploading: false }
+        this.state = {uploading: false}
     }
 
     uploadFile = async (file) => {
@@ -156,8 +160,8 @@ class S3ImageUpload extends React.Component {
             fileName,
             file,
             {
-                customPrefix: { public: 'uploads/' },
-                metadata: { albumid: this.props.albumId, owner: user.username }
+                customPrefix: {public: 'uploads/'},
+                metadata: {albumid: this.props.albumId, owner: user.username}
             }
         );
 
@@ -168,7 +172,7 @@ class S3ImageUpload extends React.Component {
         this.setState({uploading: true});
 
         let files = [];
-        for (var i=0; i<e.target.files.length; i++) {
+        for (var i = 0; i < e.target.files.length; i++) {
             files.push(e.target.files.item(i));
         }
         await Promise.all(files.map(f => this.uploadFile(f)));
@@ -183,7 +187,7 @@ class S3ImageUpload extends React.Component {
                     onClick={() => document.getElementById('add-image-file-input').click()}
                     disabled={this.state.uploading}
                     icon='file image outline'
-                    content={ this.state.uploading ? 'Uploading...' : 'Add Images' }
+                    content={this.state.uploading ? 'Uploading...' : 'Add Images'}
                 />
                 <input
                     id='add-image-file-input'
@@ -191,7 +195,7 @@ class S3ImageUpload extends React.Component {
                     accept='image/*'
                     multiple
                     onChange={this.onChange}
-                    style={{ display: 'none' }}
+                    style={{display: 'none'}}
                 />
             </div>
         );
@@ -209,10 +213,11 @@ class PhotosList extends React.Component {
             />
         );
     }
+
     render() {
         return (
             <div>
-                <Divider hidden />
+                <Divider hidden/>
                 {this.photoItems()}
             </div>
         );
@@ -242,9 +247,9 @@ class NewAlbum extends Component {
       }
     }`;
 
-        const result = await API.graphql(graphqlOperation(NewAlbum, { name: this.state.albumName }));
+        const result = await API.graphql(graphqlOperation(NewAlbum, {name: this.state.albumName}));
         console.info(`Created album with id ${result.data.createAlbum.id}`);
-        this.setState({ albumName: '' })
+        this.setState({albumName: ''})
     }
 
     render() {
@@ -256,7 +261,7 @@ class NewAlbum extends Component {
                     placeholder='Record description'
                     icon='plus'
                     iconPosition='left'
-                    action={{ content: 'Create', onClick: this.handleSubmit }}
+                    action={{content: 'Create', onClick: this.handleSubmit}}
                     name='albumName'
                     value={this.state.albumName}
                     onChange={this.handleChange}
@@ -269,10 +274,22 @@ class NewAlbum extends Component {
 
 class AlbumsList extends React.Component {
     albumItems() {
+        console.log(this.props.albums);
         return this.props.albums.sort(makeComparator('name')).map(album =>
-            <List.Item key={album.id}>
-                <NavLink to={`/records/${album.id}`}>{album.name}</NavLink>
-            </List.Item>
+            <Table.Row key={album.id}>
+                <Table.Cell>
+                    <NavLink to={`/records/${album.id}`}>{album.name}</NavLink>
+                </Table.Cell>
+                <Table.Cell>
+                    {album.owner}
+                </Table.Cell>
+                <Table.Cell>
+                    {album.updatedAt}
+                </Table.Cell>
+                <Table.Cell>
+                    {album.state}
+                </Table.Cell>
+            </Table.Row>
         );
     }
 
@@ -280,9 +297,19 @@ class AlbumsList extends React.Component {
         return (
             <Segment>
                 <Header as='h3'>Reported Risk/Hazards</Header>
-                <List divided relaxed>
-                    {this.albumItems()}
-                </List>
+                <Table celled>
+                    <Table.Header>
+                        <Table.Row>
+                            <Table.HeaderCell>Risk/Hazard</Table.HeaderCell>
+                            <Table.HeaderCell>Reported by</Table.HeaderCell>
+                            <Table.HeaderCell>Updated At</Table.HeaderCell>
+                            <Table.HeaderCell>Status</Table.HeaderCell>
+                        </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                        {this.albumItems()}
+                    </Table.Body>
+                </Table>
             </Segment>
         );
     }
@@ -304,8 +331,11 @@ class AlbumDetailsLoader extends React.Component {
     async loadMorePhotos() {
         if (!this.state.hasMorePhotos) return;
 
-        this.setState({ loading: true });
-        const { data } = await API.graphql(graphqlOperation(GetAlbum, {id: this.props.id, nextTokenForPhotos: this.state.nextTokenForPhotos}));
+        this.setState({loading: true});
+        const {data} = await API.graphql(graphqlOperation(GetAlbum, {
+            id: this.props.id,
+            nextTokenForPhotos: this.state.nextTokenForPhotos
+        }));
 
         let album;
         if (this.state.album === null) {
@@ -347,7 +377,7 @@ class AlbumDetails extends Component {
             <Segment>
                 <Header as='h3'>{this.props.album.name}</Header>
                 <S3ImageUpload albumId={this.props.album.id}/>
-                <PhotosList photos={this.props.album.photos.items} />
+                <PhotosList photos={this.props.album.photos.items}/>
                 {
                     this.props.hasMorePhotos &&
                     <Form.Button
@@ -361,7 +391,6 @@ class AlbumDetails extends Component {
         )
     }
 }
-
 
 
 class AlbumsListLoader extends React.Component {
@@ -380,18 +409,21 @@ class AlbumsListLoader extends React.Component {
                 subscription={graphqlOperation(SubscribeToNewAlbums)}
                 onSubscriptionMsg={this.onNewAlbum}
             >
-                {({ data, loading, errors }) => {
-                    if (loading) { return <div>Loading...</div>; }
-                    if (errors.length > 0) { return <div>{JSON.stringify(errors)}</div>; }
+                {({data, loading, errors}) => {
+                    if (loading) {
+                        return <div>Loading...</div>;
+                    }
+                    if (errors.length > 0) {
+                        return <div>{JSON.stringify(errors)}</div>;
+                    }
                     if (!data.listAlbums) return;
 
-                    return <AlbumsList albums={data.listAlbums.items} />;
+                    return <AlbumsList albums={data.listAlbums.items}/>;
                 }}
             </Connect>
         );
     }
 }
-
 
 
 class App extends Component {
@@ -406,11 +438,11 @@ class App extends Component {
 
                         <Route
                             path="/records/:albumId"
-                            render={ () => <div><NavLink to='/'>Back to records list</NavLink></div> }
+                            render={() => <div><NavLink to='/'>Back to records list</NavLink></div>}
                         />
                         <Route
                             path="/records/:albumId"
-                            render={ props => <AlbumDetailsLoader id={props.match.params.albumId}/> }
+                            render={props => <AlbumDetailsLoader id={props.match.params.albumId}/>}
                         />
                     </Grid.Column>
                 </Grid>

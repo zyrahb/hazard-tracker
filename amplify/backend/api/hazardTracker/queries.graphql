@@ -1,0 +1,31 @@
+query ListAlbums {
+    listAlbums(limit: 9999) {
+        items {
+            id
+            name
+            owner
+
+        }
+    }
+}
+
+query AllAlbums {
+    listAlbums {
+        items {
+            id
+            name
+            photos {
+                items {
+                    id
+                    bucket
+                    thumbnail {
+                        width
+                        height
+                        key
+                    }
+                }
+            }
+        }
+    }
+}
+

@@ -1,14 +1,15 @@
 type Album @model @auth(rules: [{allow: owner}]) {
     id: ID!
     name: String!
-    photos: [Photo] @connection(name: "RecordPhotos")
+    photos: [Photo] @connection(name: "AlbumPhotos")
     owner: String
     updatedAt: String
+    state: State
 }
 
 type Photo @model @auth(rules: [{allow: owner}]) {
     id: ID!
-    album: Record @connection(name: "RecordPhotos")
+    album: Album @connection(name: "AlbumPhotos")
     bucket: String!
     fullsize: PhotoS3Info!
     thumbnail: PhotoS3Info!
@@ -18,4 +19,10 @@ type PhotoS3Info {
     key: String!
     width: Int!
     height: Int!
+}
+
+enum State {
+    REPORTED
+    PENDING
+    RESOLVED
 }
