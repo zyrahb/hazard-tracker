@@ -7,7 +7,7 @@
 		}
 	},
 	"api": {
-		"hazardtracker": {
+		"hazardTracker": {
 			"service": "AppSync",
 			"providerPlugin": "awscloudformation",
 			"output": {
@@ -15,28 +15,11 @@
 			}
 		}
 	},
-	"function": {
-		"S3Trigger0d3e7d7d": {
-			"service": "Lambda",
-			"providerPlugin": "awscloudformation",
-			"build": true
-		}
-	},
+	"function": {},
 	"storage": {
-		"hazardstorage": {
+		"s3Photos": {
 			"service": "S3",
-			"providerPlugin": "awscloudformation",
-			"dependsOn": [
-				{
-					"category": "function",
-					"resourceName": "S3Trigger0d3e7d7d",
-					"attributes": [
-						"Name",
-						"Arn",
-						"LambdaExecutionRole"
-					]
-				}
-			]
+			"providerPlugin": "awscloudformation"
 		}
 	}
 }

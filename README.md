@@ -21,3 +21,7 @@ npm install --save uuid
 ```
 
 `npm start`
+
+Notes
+- have to manually add the s3 trigger to lambda for an existing bucket in SAM also aws cli lambda only supports kinesis/dynamoDB/SQS
+

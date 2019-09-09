@@ -1,5 +1,3 @@
-// src/App.js
-
 import React, { Component } from 'react';
 
 import {BrowserRouter as Router, Route, NavLink} from 'react-router-dom';
@@ -28,32 +26,29 @@ function makeComparator(key, order='asc') {
 }
 
 
-const ListRecords = `query ListRecords {
-    listRecords(limit: 9999) {
+const ListAlbums = `query ListAlbums {
+    listAlbums(limit: 9999) {
         items {
             id
-            description
-            createdAt
+            name
         }
     }
 }`;
 
-const SubscribeToNewRecords = `
-  subscription OnCreateRecord {
-    onCreateRecord {
+const SubscribeToNewAlbums = `
+  subscription OnCreateAlbum {
+    onCreateAlbum {
       id
-      description
+      name
     }
   }
 `;
 
-
-const GetRecord = `query GetRecord($id: ID!, $nextTokenForPhotos: String) {
-    getRecord(id: $id) {
+const GetAlbum = `query GetAlbum($id: ID!) {
+  getAlbum(id: $id) {
     id
-    description
-    photos(sortDirection: DESC, nextToken: $nextTokenForPhotos) {
-      nextToken
+    name
+    photos {
       items {
         thumbnail {
           width
@@ -61,10 +56,91 @@ const GetRecord = `query GetRecord($id: ID!, $nextTokenForPhotos: String) {
           key
         }
       }
+      nextToken
     }
   }
 }
 `;
+
+const SearchPhotos = `query SearchPhotos($label: String!) {
+  searchPhotos(filter: { labels: { match: $label }}) {
+    items {
+      id
+      bucket
+      thumbnail {
+          key
+          width
+          height
+      }
+      fullsize {
+          key
+          width
+          height
+      }
+    }
+  }
+}`;
+
+
+class Search extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            photos: [],
+            album: null,
+            label: '',
+            hasResults: false,
+            searched: false
+        }
+    }
+
+    updateLabel = (e) => {
+        this.setState({ label: e.target.value, searched: false });
+    }
+
+    getPhotosForLabel = async (e) => {
+        const result = await API.graphql(graphqlOperation(SearchPhotos, {label: this.state.label}));
+        let photos = [];
+        let label = '';
+        let hasResults = false;
+        if (result.data.searchPhotos.items.length !== 0) {
+            hasResults = true;
+            photos = result.data.searchPhotos.items;
+            label = this.state.label;
+        }
+        const searchResults = { label, photos }
+        this.setState({ searchResults, hasResults, searched: true });
+    }
+
+    noResults() {
+        return !this.state.searched
+            ? ''
+            : <Header as='h4' color='grey'>No photos found matching '{this.state.label}'</Header>
+    }
+
+    render() {
+        return (
+            <Segment>
+                <Input
+                    type='text'
+                    placeholder='Search for photos'
+                    icon='search'
+                    iconPosition='left'
+                    action={{ content: 'Search', onClick: this.getPhotosForLabel }}
+                    name='label'
+                    value={this.state.label}
+                    onChange={this.updateLabel}
+                />
+                {
+                    this.state.hasResults
+                        ? <PhotosList photos={this.state.searchResults.photos} />
+                        : this.noResults()
+                }
+            </Segment>
+        );
+    }
+}
+
 
 class S3ImageUpload extends React.Component {
     constructor(props) {
@@ -81,7 +157,7 @@ class S3ImageUpload extends React.Component {
             file,
             {
                 customPrefix: { public: 'uploads/' },
-                metadata: { recordId: this.props.recordId, owner: user.username }
+                metadata: { albumid: this.props.albumId, owner: user.username }
             }
         );
 
@@ -133,7 +209,6 @@ class PhotosList extends React.Component {
             />
         );
     }
-
     render() {
         return (
             <div>
@@ -144,11 +219,11 @@ class PhotosList extends React.Component {
     }
 }
 
-class NewRecord extends Component {
+class NewAlbum extends Component {
     constructor(props) {
         super(props);
         this.state = {
-            recordDesc: ''
+            albumName: ''
         };
     }
 
@@ -160,16 +235,16 @@ class NewRecord extends Component {
 
     handleSubmit = async (event) => {
         event.preventDefault();
-        const NewRecord = `mutation description($name: String) {
-      createRecord(input: {description: $name}) {
+        const NewAlbum = `mutation NewAlbum($name: String!) {
+      createAlbum(input: {name: $name}) {
         id
-        description
+        name
       }
     }`;
 
-        const result = await API.graphql(graphqlOperation(NewRecord, { name: this.state.recordDesc }));
-        console.info(`Created record with id ${result.data.createRecord.id}`);
-        this.setState({ recordDesc: '' })
+        const result = await API.graphql(graphqlOperation(NewAlbum, { name: this.state.albumName }));
+        console.info(`Created album with id ${result.data.createAlbum.id}`);
+        this.setState({ albumName: '' })
     }
 
     render() {
@@ -181,9 +256,9 @@ class NewRecord extends Component {
                     placeholder='Record description'
                     icon='plus'
                     iconPosition='left'
-                    action={{ content: 'Submit', onClick: this.handleSubmit }}
-                    name='recordDesc'
-                    value={this.state.recordDesc}
+                    action={{ content: 'Create', onClick: this.handleSubmit }}
+                    name='albumName'
+                    value={this.state.albumName}
                     onChange={this.handleChange}
                 />
             </Segment>
@@ -192,11 +267,11 @@ class NewRecord extends Component {
 }
 
 
-class RecordsList extends React.Component {
-    recordItems() {
-        return this.props.records.sort(makeComparator('createdAt')).map(record =>
-            <List.Item key={record.id}>
-                <NavLink to={`/records/${record.id}`}>{record.description}</NavLink>
+class AlbumsList extends React.Component {
+    albumItems() {
+        return this.props.albums.sort(makeComparator('name')).map(album =>
+            <List.Item key={album.id}>
+                <NavLink to={`/records/${album.id}`}>{album.name}</NavLink>
             </List.Item>
         );
     }
@@ -204,9 +279,9 @@ class RecordsList extends React.Component {
     render() {
         return (
             <Segment>
-                <Header as='h3'>Reported</Header>
+                <Header as='h3'>Reported Risk/Hazards</Header>
                 <List divided relaxed>
-                    {this.recordItems()}
+                    {this.albumItems()}
                 </List>
             </Segment>
         );
@@ -214,38 +289,36 @@ class RecordsList extends React.Component {
 }
 
 
-class RecordDetailsLoader extends React.Component {
+class AlbumDetailsLoader extends React.Component {
     constructor(props) {
         super(props);
 
         this.state = {
             nextTokenForPhotos: null,
             hasMorePhotos: true,
-            record: null,
+            album: null,
             loading: true
         }
     }
 
-
     async loadMorePhotos() {
         if (!this.state.hasMorePhotos) return;
-        console.log(this.props);
-        console.log(this.state);
-        this.setState({ loading: true });
-        const { data } = await API.graphql(graphqlOperation(GetRecord, {id: this.props.id, nextTokenForPhotos: this.state.nextTokenForPhotos}));
 
-        let record;
-        if (this.state.record === null) {
-            record = data.getRecord;
+        this.setState({ loading: true });
+        const { data } = await API.graphql(graphqlOperation(GetAlbum, {id: this.props.id, nextTokenForPhotos: this.state.nextTokenForPhotos}));
+
+        let album;
+        if (this.state.album === null) {
+            album = data.getAlbum;
         } else {
-            record = this.state.record;
-            record.photos.items = record.photos.items.concat(data.getRecord.photos.items);
+            album = this.state.album;
+            album.photos.items = album.photos.items.concat(data.getAlbum.photos.items);
         }
         this.setState({
-            record: record,
+            album: album,
             loading: false,
-            nextTokenForPhotos: data.getRecord.photos.nextToken,
-            hasMorePhotos: data.getRecord.photos.nextToken !== null
+            nextTokenForPhotos: data.getAlbum.photos.nextToken,
+            hasMorePhotos: data.getAlbum.photos.nextToken !== null
         });
     }
 
@@ -255,9 +328,9 @@ class RecordDetailsLoader extends React.Component {
 
     render() {
         return (
-            <RecordDetails
+            <AlbumDetails
                 loadingPhotos={this.state.loading}
-                record={this.state.record}
+                album={this.state.album}
                 loadMorePhotos={this.loadMorePhotos.bind(this)}
                 hasMorePhotos={this.state.hasMorePhotos}
             />
@@ -266,15 +339,15 @@ class RecordDetailsLoader extends React.Component {
 }
 
 
-class RecordDetails extends Component {
+class AlbumDetails extends Component {
     render() {
-        if (!this.props.record) return 'Loading record...';
+        if (!this.props.album) return 'Loading album...';
 
         return (
             <Segment>
-                <Header as='h3'>{this.props.record.description}</Header>
-                <S3ImageUpload recordId={this.props.record.id}/>
-                <PhotosList photos={this.props.record.photos.items} />
+                <Header as='h3'>{this.props.album.name}</Header>
+                <S3ImageUpload albumId={this.props.album.id}/>
+                <PhotosList photos={this.props.album.photos.items} />
                 {
                     this.props.hasMorePhotos &&
                     <Form.Button
@@ -290,32 +363,35 @@ class RecordDetails extends Component {
 }
 
 
-class RecordsListLoader extends React.Component {
-    onNewRecord = (prevQuery, newData) => {
-        // When we get data about a new record, we need to put in into an object
+
+class AlbumsListLoader extends React.Component {
+    onNewAlbum = (prevQuery, newData) => {
+        // When we get data about a new album, we need to put in into an object
         // with the same shape as the original query results, but with the new data added as well
         let updatedQuery = Object.assign({}, prevQuery);
-        updatedQuery.listRecords.items = prevQuery.listRecords.items.concat([newData.onCreateRecord]);
+        updatedQuery.listAlbums.items = prevQuery.listAlbums.items.concat([newData.onCreateAlbum]);
         return updatedQuery;
     }
 
     render() {
         return (
             <Connect
-                query={graphqlOperation(ListRecords)}
-                subscription={graphqlOperation(SubscribeToNewRecords)}
-                onSubscriptionMsg={this.onNewRecord}
+                query={graphqlOperation(ListAlbums)}
+                subscription={graphqlOperation(SubscribeToNewAlbums)}
+                onSubscriptionMsg={this.onNewAlbum}
             >
-                {({ data, loading }) => {
+                {({ data, loading, errors }) => {
                     if (loading) { return <div>Loading...</div>; }
-                    if (!data.listRecords) return;
+                    if (errors.length > 0) { return <div>{JSON.stringify(errors)}</div>; }
+                    if (!data.listAlbums) return;
 
-                    return <RecordsList records={data.listRecords.items} />;
+                    return <AlbumsList albums={data.listAlbums.items} />;
                 }}
             </Connect>
         );
     }
 }
+
 
 
 class App extends Component {
@@ -324,16 +400,17 @@ class App extends Component {
             <Router>
                 <Grid padded>
                     <Grid.Column>
-                        <Route path="/" exact component={NewRecord}/>
-                        <Route path="/" exact component={RecordsListLoader}/>
+                        <Route path="/" exact component={NewAlbum}/>
+                        <Route path="/" exact component={AlbumsListLoader}/>
+                        <Route path="/" exact component={Search}/>
 
                         <Route
-                            path="/records/:recordId"
-                            render={ () => <div><NavLink to='/'>Back to all reported</NavLink></div> }
+                            path="/records/:albumId"
+                            render={ () => <div><NavLink to='/'>Back to records list</NavLink></div> }
                         />
                         <Route
-                            path="/records/:recordId"
-                            render={ props => <RecordDetailsLoader id={props.match.params.recordId}/> }
+                            path="/records/:albumId"
+                            render={ props => <AlbumDetailsLoader id={props.match.params.albumId}/> }
                         />
                     </Grid.Column>
                 </Grid>

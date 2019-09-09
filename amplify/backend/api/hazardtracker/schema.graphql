@@ -1,36 +1,17 @@
-type record @model
-    @auth(rules: [
-
-        # Defaults to use the "owner" field.
-        { allow: owner }
-
-        # Authorize the update mutation and both queries. Use `queries: null` to disable auth for queries.
-#        { allow: owner, ownerField: "editors", operations: [update] },
-
-        # Admin users can access any operation.
-#        { allow: groups, groups: ["Admin"] }
-
-        # Each record may specify which groups may read them.
-#        { allow: groups, groupsField: "groupsCanAccess", operations: [read] }
-    ]) {
+type Album @model @auth(rules: [{allow: owner}]) {
     id: ID!
-    description: String
-    createdAt: String
-    updatedAt: String
-    status: String
-    owner: String
+    name: String!
     photos: [Photo] @connection(name: "RecordPhotos")
-#    editors: [String]!
+    owner: String
+    updatedAt: String
 }
-
 
 type Photo @model @auth(rules: [{allow: owner}]) {
     id: ID!
-    record: record @connection(name: "RecordPhotos")
+    album: Record @connection(name: "RecordPhotos")
     bucket: String!
     fullsize: PhotoS3Info!
     thumbnail: PhotoS3Info!
-    owner: String
 }
 
 type PhotoS3Info {
